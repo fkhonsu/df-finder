@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+
+import hashlib
+import os
+import io
+import re
+import sys
+import getopt
+
+
+MAX_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
+
+def generate_file_check_sum (filepath):
+
+    file = None
+    try:
+        file = open (filepath, 'rb')
+        hash = hashlib.new ('sha1')
+        while True:
+            chunk = file.read (MAX_BUFFER_SIZE)
+            if not chunk:
+                break
+            hash.update (chunk)
+    except Exception as e:
+        print ('ERROR!:', e)
+    else:
+        return hash.hexdigest ()
+    finally:
+        if file is not None:
+            try:
+                file.close ()
+            except Exception:
+                pass
+
+def main (argv=sys.argv):
+    """Usage: df-finder [-e <regexp pattern>] [path...]
+    default path is the current directory
+    arguments:
+      -e    regexp pattern for directories and files to exclude from search
+      -h    print this message
+    """
+    try:
+        args, paths = getopt.getopt(argv[1:], "he:v", ["help"])
+    except getopt.GetoptError as err:
+        ## print help information and exit:
+        print (err, main.__doc__, sep='\n')
+        sys.exit (2)
+
+    FOLDERS = []
+    EXCLUDE = ''
+    ## TODO: make this option settable argument
+    VERBOSE = True
+
+    print (args, paths)
+
+    for o, a in args:
+        ## print help message and exit
+        if o in ('-h', '--help'):
+            print (main.__doc__)
+            sys.exit ()
+        ## append exclude pattern
+        elif o == '-e':
+            ## compile exclude regexp pattern
+            EXCLUDE = re.compile (a)
+
+    if paths:
+        for path in paths:
+            ## Check if path is a valid directory
+            if not os.path.exists (path):
+                if VERBOSE:
+                    errmsg = 'Path "%s" do not exist'
+                    print (errmsg % path, file=sys.stderr)
+                continue
+            elif not os.path.isdir (path):
+                if VERBOSE:
+                    errmsg = 'path "%s" is not a directory'
+                    print (errmsg % path, file=sys.stderr)
+                continue
+            ## Append path to folder list we will be checking
+            FOLDERS.append (path)
+        ## Check if there are any valid dirs in searching path
+        if not FOLDERS:
+            errmsg = 'There is not a single valid location to check'
+            print (errmsg, file=sys.stderr)
+            sys.exit (1)
+    else:
+        ## if not any path given, use default (current folder)
+        FOLDERS.append (os.getcwd ())
+
+
+    ## Duplicate files
+    dfiles = {}
+
+    try:
+        for basedir in FOLDERS:
+            for (dirpath, dirnames, filenames) in os.walk (basedir):
+                if VERBOSE:
+                    print ('checking:', dirpath)
+                ## omit excluded directories and files
+                if EXCLUDE:
+                    for dir in dirnames:
+                        if EXCLUDE.match (dir):
+                            dirnames.remove (dir)
+                            if VERBOSE:
+                                print ('omitting dir:', dir)
+                    for file in filenames:
+                        if EXCLUDE.match (file):
+                            dirnames.remove (file)
+                            if VERBOSE:
+                                print ('omitting file:', file)
+
+                try:
+                    for i, file in enumerate (filenames):
+                        path = os.path.join (dirpath, file)
+                        if os.path.islink (path):
+                            continue
+
+                        stat = os.stat (path)
+                        ## check only for non empty files
+                        if stat.st_size == 0:
+                            continue
+
+                        if VERBOSE:
+                            print (' ', os.path.basename (path))
+                        ## generate file hash
+                        hash = generate_file_check_sum (path)
+
+                        entry = (path, stat)
+                        if hash in dfiles:
+                            dfiles [hash].append (entry)
+                        else:
+                            dfiles [hash] = [entry]
+                except (OSError, IOError) as err:
+                    print (err, file=sys.stderr)
+
+    except KeyboardInterrupt:
+        print ('Canceled!')
+    finally:
+        print ()
+        for k, v in dfiles.items ():
+            if len (v) > 1:
+                print ('SHA-1:', k)
+                print ('size:', v [0][1].st_size)
+                for entry in v:
+                    path, name = os.path.split (entry [0])
+                    print ('  file name:', name)
+                    print ('  file path:', path)
+                    print ()
+                print ('=' * 79)
+
+if __name__ == "__main__":
+    main ()
