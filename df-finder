@@ -34,13 +34,14 @@ def generate_file_check_sum (filepath):
 
 def main (argv=sys.argv):
     """Usage: df-finder [-e <regexp pattern>] [path...]
-    default path is the current directory
-    arguments:
-      -e    regexp pattern for directories and files to exclude from search
-      -h    print this message
+
+default path is the current directory
+options:
+  -e    regexp pattern for directories and files to exclude from search
+  -h    print this message
     """
     try:
-        args, paths = getopt.getopt(argv[1:], "he:v", ["help"])
+        args, paths = getopt.gnu_getopt (argv[1:], "he:v", ["help"])
     except getopt.GetoptError as err:
         ## print help information and exit:
         print (err, main.__doc__, sep='\n')
@@ -51,7 +52,6 @@ def main (argv=sys.argv):
     ## TODO: make this option settable argument
     VERBOSE = True
 
-    print (args, paths)
 
     for o, a in args:
         ## print help message and exit
@@ -97,19 +97,25 @@ def main (argv=sys.argv):
                 if VERBOSE:
                     print ('checking:', dirpath)
                 ## omit excluded directories and files
+                ## iterate over list copies to avoid problems
+                ## with mutable sequences
                 if EXCLUDE:
-                    for dir in dirnames:
+                    print ('omitting dirs:')
+                    for dir in dirnames [:]:
                         if EXCLUDE.match (dir):
                             dirnames.remove (dir)
                             if VERBOSE:
-                                print ('omitting dir:', dir)
-                    for file in filenames:
+                                print (' ', dir)
+                    print ('omitting files:')
+                    for file in filenames [:]:
                         if EXCLUDE.match (file):
-                            dirnames.remove (file)
+                            filenames.remove (file)
                             if VERBOSE:
-                                print ('omitting file:', file)
-
+                                print (' ', file)
                 try:
+                    if VERBOSE:
+                        print ('files to check:')
+
                     for i, file in enumerate (filenames):
                         path = os.path.join (dirpath, file)
                         if os.path.islink (path):
@@ -141,6 +147,7 @@ def main (argv=sys.argv):
             if len (v) > 1:
                 print ('SHA-1:', k)
                 print ('size:', v [0][1].st_size)
+                print ('-' * 79)
                 for entry in v:
                     path, name = os.path.split (entry [0])
                     print ('  file name:', name)
