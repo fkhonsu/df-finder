@@ -41,9 +41,10 @@ options:
   -h    print this message
   -v    be verbose
   -vv   be more verbose
+  -0    include empty files (why anyone want to do that?)
     """
     try:
-        args, paths = getopt.gnu_getopt (argv[1:], "he:v", ["help"])
+        args, paths = getopt.gnu_getopt (argv[1:], "he:v0", ["help"])
     except getopt.GetoptError as err:
         ## print help information and exit:
         print (err, main.__doc__, sep='\n')
@@ -51,8 +52,8 @@ options:
 
     FOLDERS = []
     EXCLUDE = ''
-    ## TODO: make this option settable argument
     VERBOSE = 0
+    Z0FILES = 0
 
 
     for o, a in args:
@@ -67,6 +68,8 @@ options:
         elif o == '-v':
             ## increase verbosity
             VERBOSE += 1
+        elif o == '-0':
+            Z0FILES = 1
 
     if paths:
         for path in paths:
@@ -98,7 +101,7 @@ options:
         for basedir in FOLDERS:
             for (dirpath, dirnames, filenames) in os.walk (basedir):
                 if VERBOSE:
-                    print ('checking:', dirpath)
+                    print ('checking dir:', dirpath)
                 ## omit excluded directories and files
                 ## iterate over list copies to avoid problems
                 ## with mutable sequences
@@ -127,8 +130,9 @@ options:
                             continue
 
                         stat = os.stat (path)
-                        ## check only for non empty files
-                        if stat.st_size == 0:
+                        ## check for non empty files only,
+                        ## unless Z0FILES option is set
+                        if not Z0FILES and stat.st_size == 0:
                             continue
 
                         if VERBOSE > 1:
@@ -150,7 +154,7 @@ options:
         print ()
         for k, v in dfiles.items ():
             if len (v) > 1:
-                print ('SHA-1:', k)
+                print ('SHA1:', k)
                 print ('size:', v [0][1].st_size)
                 print ('-' * 79)
                 for entry in v:
