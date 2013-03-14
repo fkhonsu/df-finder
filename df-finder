@@ -33,24 +33,28 @@ def generate_file_check_sum (filepath):
                 pass
 
 def main (argv=sys.argv):
-    """Usage: df-finder [-e <regexp pattern>] [path...]
+    """Usage: df-finder [OPTION]... [PATH]...
+Dublicate file finder, find dublicated files (same content) in specific PATH.
 
-default path is the current directory
-options:
-  -e    regexp pattern for directories and files to be excluded from search
-  -i    regexp pattern to include in search only specific files an directories
-  --ef  same as -e but for files ONLY
-  --if  same as -i but for files ONLY
-  --ed  same as -e but for directories ONLY
-  --id  same as -i but for directories ONLY
-  -h    print this message
-  -v    be verbose
-  -vv   be more verbose
-  -0    include empty files (why anyone want to do that?)
+Mandatory arguments to long options are mandatory for short options too.
+  -e, --exclude=PATTERN     directories and files to be excluded from search
+  -i, --include=PATTERN     directories and files to be included in search
+      --excludef=PATTERN    same as -e but for files ONLY
+      --includef=PATTERN    same as -i but for files ONLY
+      --excluded=PATTERN    same as -e but for directories ONLY
+      --included=PATTERN    same as -i but for directories ONLY
+  -h, --help                print this message
+  -v                        be verbose
+  -vv                       be more verbose
+  -0                        include empty files (why anyone want to do that?)
+
+PATTERN is a python regular expresion pattern
     """
     try:
-        args, paths = getopt.gnu_getopt (argv[1:], 'he:i:v0',
-                                         ['help', 'ef=', 'if=', 'ed=', 'id='])
+        long_opts = ('exclude=','include=', 'excludef=', 'includef=',
+                'excluded=', 'included=', 'help')
+        short_opts = 'he:i:v0'
+        args, paths = getopt.gnu_getopt (argv[1:], short_opts, long_opts)
     except getopt.GetoptError as err:
         ## print help information and exit:
         print (err, main.__doc__, sep='\n')
@@ -82,25 +86,25 @@ options:
         elif o == '-0':
             ## include zero size files
             Z0FILES = 1
-        elif o == '-e':
+        elif o in ('-e', '--exclude'):
             ## compile exclude regexp pattern, do not search files
             ## that match this pattern
             EXCLUDE = re.compile (a)
-        elif o == '-i':
+        elif o in ('-i', '--include'):
             ## include pattern, search only for files that match it
             INCLUDE = re.compile (a)
-        elif o == '--ef':
+        elif o == '--excludef':
             ## compile exclude regexp pattern, do not search files
             ## that match this pattern
             EXCLUDEF = re.compile (a)
-        elif o == '--if':
+        elif o == '--includef':
             ## include pattern, search only for files that match it
             INCLUDEF = re.compile (a)
-        elif o == '--ed':
+        elif o == '--excluded':
             ## compile exclude regexp pattern, do not search directories
             ## that match this pattern
             EXCLUDED = re.compile (a)
-        elif o == '--id':
+        elif o == '--included':
             ## include pattern, search only directories that match it
             INCLUDED = re.compile (a)
 
@@ -123,9 +127,10 @@ options:
             print (errmsg, file=sys.stderr)
             sys.exit (1)
     else:
-        ## if path not given, use default (current folder)
-        FOLDERS.append (os.getcwd ())
-
+        ## if path not given, raise error and print help messge
+        print ('Missing search path\n')
+        print (main.__doc__)
+        sys.exit (2)
 
     ## Duplicate files
     dfiles = {}
