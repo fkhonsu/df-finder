@@ -37,23 +37,38 @@ def main (argv=sys.argv):
 
 default path is the current directory
 options:
-  -e    regexp pattern for directories and files to exclude from search
+  -e    regexp pattern for directories and files to be excluded from search
+  -i    regexp pattern to include in search only specific files an directories
+  --ef  same as -e but for files ONLY
+  --if  same as -i but for files ONLY
+  --ed  same as -e but for directories ONLY
+  --id  same as -i but for directories ONLY
   -h    print this message
   -v    be verbose
   -vv   be more verbose
   -0    include empty files (why anyone want to do that?)
     """
     try:
-        args, paths = getopt.gnu_getopt (argv[1:], "he:v0", ["help"])
+        args, paths = getopt.gnu_getopt (argv[1:], 'he:i:v0',
+                                         ['help', 'ef=', 'if=', 'ed=', 'id='])
     except getopt.GetoptError as err:
         ## print help information and exit:
         print (err, main.__doc__, sep='\n')
         sys.exit (2)
 
     FOLDERS = []
-    EXCLUDE = ''
     VERBOSE = 0
     Z0FILES = 0
+    ## regexp patterns to exclude and include only specific files AND
+    ## directories
+    EXCLUDE = None
+    INCLUDE = None
+    ## regexp patterns to exclude and include only specific files
+    EXCLUDEF = None
+    INCLUDEF = None
+    ## regexp patterns to exclude and include only specific dirs
+    EXCLUDED = None
+    INCLUDED = None
 
 
     for o, a in args:
@@ -61,15 +76,33 @@ options:
         if o in ('-h', '--help'):
             print (main.__doc__)
             sys.exit ()
-        ## append exclude pattern
-        elif o == '-e':
-            ## compile exclude regexp pattern
-            EXCLUDE = re.compile (a)
         elif o == '-v':
             ## increase verbosity
             VERBOSE += 1
         elif o == '-0':
+            ## include zero size files
             Z0FILES = 1
+        elif o == '-e':
+            ## compile exclude regexp pattern, do not search files
+            ## that match this pattern
+            EXCLUDE = re.compile (a)
+        elif o == '-i':
+            ## include pattern, search only for files that match it
+            INCLUDE = re.compile (a)
+        elif o == '--ef':
+            ## compile exclude regexp pattern, do not search files
+            ## that match this pattern
+            EXCLUDEF = re.compile (a)
+        elif o == '--if':
+            ## include pattern, search only for files that match it
+            INCLUDEF = re.compile (a)
+        elif o == '--ed':
+            ## compile exclude regexp pattern, do not search directories
+            ## that match this pattern
+            EXCLUDED = re.compile (a)
+        elif o == '--id':
+            ## include pattern, search only directories that match it
+            INCLUDED = re.compile (a)
 
     if paths:
         for path in paths:
@@ -102,27 +135,52 @@ options:
             for (dirpath, dirnames, filenames) in os.walk (basedir):
                 if VERBOSE:
                     print ('checking dir:', dirpath)
-                ## omit excluded directories and files
-                ## iterate over list copies to avoid problems
-                ## with mutable sequences
-                if EXCLUDE:
+
+                ## Omit excluded and not included directories and files,
+                ## iterate over list copies to avoid problems with lists
+                ## changing their size during iteration.
+
+                ## file list to omit
+                f_to_omit = []
+                for file in filenames [:]:
+                    if INCLUDE and not INCLUDE.match (file):
+                        f_to_omit.append (file)
+                    if INCLUDEF and not INCLUDEF.match (file):
+                        f_to_omit.append (file)
+                    if EXCLUDE and EXCLUDE.match (file):
+                        f_to_omit.append (file)
+                    if EXCLUDEF and EXCLUDEF.match (file):
+                        f_to_omit.append (file)
+                if f_to_omit:
                     if VERBOSE > 1:
-                        print ('omitting dirs:')
-                    for dir in dirnames [:]:
-                        if EXCLUDE.match (dir):
-                            dirnames.remove (dir)
-                            if VERBOSE > 1:
-                                print (' ', dir)
+                        print ('Omitting files:')
+                    for f in f_to_omit:
+                        filenames.remove (f)
+                        if VERBOSE > 1:
+                            print (' ', f)
+
+                ## folder list to omit
+                d_to_omit = []
+                for dir in dirnames [:]:
+                    if INCLUDE and not INCLUDE.match (dir):
+                        d_to_omit.append (dir)
+                    if INCLUDED and not INCLUDED.match (dir):
+                        d_to_omit.append (dir)
+                    if EXCLUDE and EXCLUDE.match (dir):
+                        d_to_omit.append (dir)
+                    if EXCLUDED and EXCLUDED.match (dir):
+                        d_to_omit.append (dir)
+                if d_to_omit:
                     if VERBOSE > 1:
-                        print ('omitting files:')
-                    for file in filenames [:]:
-                        if EXCLUDE.match (file):
-                            filenames.remove (file)
-                            if VERBOSE > 1:
-                                print (' ', file)
+                        print ('Omitting dirs:')
+                    for d in d_to_omit:
+                        dirnames.remove (d)
+                        if VERBOSE > 1:
+                            print (' ', d)
+
                 try:
                     if VERBOSE > 1:
-                        print ('files to check:')
+                        print ('Files to check:')
 
                     for i, file in enumerate (filenames):
                         path = os.path.join (dirpath, file)
