@@ -38,7 +38,7 @@ Dublicate file finder, find dublicated files (same content) in specific PATH.
 
 Mandatory arguments to long options are mandatory for short options too.
   -e, --exclude=PATTERN     directories and files to be excluded from search
-  -i, --include=PATTERN     directories and files to be included in search
+  -i, --include=PATTERN     directories and files to be examined
       --excludef=PATTERN    same as -e but for files ONLY
       --includef=PATTERN    same as -i but for files ONLY
       --excluded=PATTERN    same as -e but for directories ONLY
@@ -47,13 +47,16 @@ Mandatory arguments to long options are mandatory for short options too.
   -v                        be verbose
   -vv                       be more verbose
   -0                        include empty files (why anyone want to do that?)
+  -P                        never  follow  symbolic  links,   this  is the
+                            default behaviour.
+  -L                        follow symbolic links
 
 PATTERN is a python regular expresion pattern
     """
     try:
         long_opts = ('exclude=','include=', 'excludef=', 'includef=',
                 'excluded=', 'included=', 'help')
-        short_opts = 'he:i:v0'
+        short_opts = 'he:i:v0LP'
         args, paths = getopt.gnu_getopt (argv[1:], short_opts, long_opts)
     except getopt.GetoptError as err:
         ## print help information and exit:
@@ -73,6 +76,8 @@ PATTERN is a python regular expresion pattern
     ## regexp patterns to exclude and include only specific dirs
     EXCLUDED = None
     INCLUDED = None
+    ## flag indicating link treatment behavior, (default False)
+    FOLLOWLK = False
 
 
     for o, a in args:
@@ -88,10 +93,11 @@ PATTERN is a python regular expresion pattern
             Z0FILES = 1
         elif o in ('-e', '--exclude'):
             ## compile exclude regexp pattern, do not search files
-            ## that match this pattern
+            ## and directories that match this pattern
             EXCLUDE = re.compile (a)
         elif o in ('-i', '--include'):
-            ## include pattern, search only for files that match it
+            ## include pattern, search only for files and directories
+            ## that match it
             INCLUDE = re.compile (a)
         elif o == '--excludef':
             ## compile exclude regexp pattern, do not search files
@@ -107,6 +113,12 @@ PATTERN is a python regular expresion pattern
         elif o == '--included':
             ## include pattern, search only directories that match it
             INCLUDED = re.compile (a)
+        elif o == '-P':
+            ## do no folow symbolic links
+            FOLLOWLK = False
+        elif o == '-L':
+            ## folow symbolic links
+            FOLLOWLK = True
 
     if paths:
         for path in paths:
@@ -137,7 +149,8 @@ PATTERN is a python regular expresion pattern
 
     try:
         for basedir in FOLDERS:
-            for (dirpath, dirnames, filenames) in os.walk (basedir):
+            for (dirpath, dirnames, filenames) in os.walk (basedir,
+                                                        followlinks=FOLLOWLK):
                 if VERBOSE:
                     print ('checking dir:', dirpath)
 
@@ -156,6 +169,11 @@ PATTERN is a python regular expresion pattern
                         f_to_omit.append (file)
                     if EXCLUDEF and EXCLUDEF.match (file):
                         f_to_omit.append (file)
+                    ## if FOLLOWLK flag is set (witch means do not follow
+                    ## links) remove links from files to check
+                    if FOLLOWLK:
+                        if os.path.islink (file):
+                            filenames.remove (file)
                 if f_to_omit:
                     if VERBOSE > 1:
                         print ('Omitting files:')
