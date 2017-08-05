@@ -2,6 +2,7 @@ df-finder
 =========
 
 Usage: df-finder [OPTION]... [PATH]...
+
 Dublicate file finder, find dublicated files (same content) in specific PATH.
 
 Mandatory arguments to long options are mandatory for short options too.
